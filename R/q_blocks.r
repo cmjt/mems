@@ -1,17 +1,17 @@
 #' Calculates the precision matrix blocks contributions from each triangle/node
 #' in the triangulation
-#' @source \url{ https://github.com/inlabru-org/fmesher/blob/d1dcbba1a42144a22b8e8056cb7236381e0b67ef/src/mesh.cc#L2278}
+#' @source \url{https://github.com/inlabru-org/fmesher/blob/d1dcbba1a42144a22b8e8056cb7236381e0b67ef/src/mesh.cc#L2278}
 #' @details Simpler version of the \code{C++} versions implemented in
-#' \link{fmesher}. Is only for demonstration.
-#' @param smesh object of \code{fmesher_mesh} 2D
-q_blocks <- function(smesh)  {
+#' \code{fmesher::fm_fem}. Is only for demonstration.
+#' @param mesh object of \code{fmesher::fm_mesh_2d} (i.e., 2D Delaunay triangulation, 'mesh').
+q_blocks <- function(mesh)  {
     n_v <- mesh$n
     n_t <- nrow(mesh$graph$tv)
     ## Initialize matrices
     C1 <- C0 <- matrix(0, n_v, n_v)
     G1 <- matrix(0, n_v, n_v)
     B1 <- matrix(0, n_v, n_v)
-    triangle_areas <- stelfi::meshmetrics(mesh)$area
+    triangle_areas <- mems(mesh)$area
     ##
     TV <-  mesh$graph$tv ## which triangles share nodes/verticies
     TT <- mesh$graph$tt ## which triangles (t)ouch
@@ -74,12 +74,11 @@ q_blocks <- function(smesh)  {
             }
         }
     } ## matches t
-    ## turn into sparse Matrcies
-    require(Matrix)
-    return(list(C0 = as(as(C0, "generalMatrix"), "TsparseMatrix"),
-                C1 = as(as(C1, "generalMatrix"), "TsparseMatrix"),
-                G1 = as(as(G1, "generalMatrix"), "TsparseMatrix"),
-                B1 = as(as(B1, "generalMatrix"), "TsparseMatrix"),
+    ## turn Q blocks into sparse Matrcies
+    return(list(C0 = methods::as(methods::as(C0, "generalMatrix"), "TsparseMatrix"),
+                C1 = methods::as(methods::as(C1, "generalMatrix"), "TsparseMatrix"),
+                G1 = methods::as(methods::as(G1, "generalMatrix"), "TsparseMatrix"),
+                B1 = methods::as(methods::as(B1, "generalMatrix"), "TsparseMatrix"),
                 triangle_areas = triangle_areas))
 }
 
