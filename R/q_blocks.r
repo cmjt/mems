@@ -22,7 +22,7 @@ q_blocks <- function(mesh)  {
         s1 <- S[tv[2], ]
         s2 <- S[tv[3], ]
         ## edges
-        e <- list(
+        e <- list( ## elementwise subtraction
             s2 - s1,
             s0 - s2,
             s1 - s0
@@ -30,7 +30,7 @@ q_blocks <- function(mesh)  {
         ## browser()
         eij <- matrix(0, 3, 3)
         for (i in 1:3) {
-            eij[i, i] <- sum(e[[i]] * e[[i]])
+            eij[i, i] <- sum(e[[i]] * e[[i]]) ## Sum of the dot product
             js <- 1:3
             js <- js[js > i & js <= 3]
             for(j in js){
@@ -41,17 +41,16 @@ q_blocks <- function(mesh)  {
         }
         ## C0, C1, G1
         a <- triangle_areas[t]
-        fa <- abs(sum(crossprod(e[[1]], e[[2]]))) / 2
         for (i in 1:3) {
             C0[tv[i], tv[i]] <- C0[tv[i], tv[i]] + a / 3
             C1[tv[i], tv[i]] <- C1[tv[i], tv[i]] + a / 6
-            G1[tv[i], tv[i]] <- G1[tv[i], tv[i]] + eij[i, i] / (4 * fa)
+            G1[tv[i], tv[i]] <- G1[tv[i], tv[i]] + eij[i, i] / (4 * a)
             js <- 1:3
             js <- js[js > i & js <= 3]
             for(j in js){
                 C1[tv[i], tv[j]] <- C1[tv[i], tv[j]] + a / 12
                 C1[tv[j], tv[i]] <- C1[tv[j], tv[i]] + a / 12
-                vij <- eij[i, j] / (4 * fa)
+                vij <- eij[i, j] / (4 * a)
                 G1[tv[i], tv[j]] <- G1[tv[i], tv[j]] + vij
                 G1[tv[j], tv[i]] <- G1[tv[j], tv[i]] + vij
             }
@@ -61,8 +60,8 @@ q_blocks <- function(mesh)  {
         for(boo in 1:3){
          if(is.na(TT[t, boo])) {b[boo] <- TRUE}
             }
-        if (any(b)) {
-            vij <- -1 / (4 * fa)
+        if (any(b)) { ## any NA values means on the boundary
+            vij <- -1 / (4 * a)
             for (i in 1:3) {
                 for (j in 1:3) {
                     for (k in 1:3) {
