@@ -7,6 +7,16 @@
 dist <- function(A, B) {
   sqrt((A[1] - B[1])^2 + (A[2] - B[2])^2)
 }
+#' Find mid point on straight line between two points
+#' @inheritParams dist
+#' @examples
+#' mid(c(1, 1), c(2, 1))
+#' @export
+mid <- function(A, B){
+    xm <- (A[1] + B[1])/2
+    ym <- (A[2] + B[2])/2
+    return(c(xm, ym))
+}
 #' Cosine triangle function to calculate angle C (in degrees)
 #' given edge lengths a, b, and c
 #' 
@@ -203,12 +213,26 @@ mesh_2_sf <- function(mesh) {
                      geometry = st)
     return(res)
 }
+#'
+#' @source \url{https://gist.github.com/joeroe/43bb6efa233cb5c8994b6a6d41a4911a}
+deldir_2_sf <- function(deldir) {
+    deldir %>%
+        purrr::map(~{cbind(x = .$x, y = .$y)} %>%
+                       rbind(.[1,]) %>%
+                       list() %>%
+                       sf::st_polygon()) %>%
+        sf::st_sfc() %>%
+        sf::st_sf() %>%
+        dplyr::mutate(id = dplyr::row_number()) %>%
+        return()
+}
 #' Calculate a number of different geometric attributes of a Delaunay triangulation
 #' 
 #' Calculates a number of geometric attributes for a given
 #' Delaunay triangulation based on the circumscribed and inscribed circle of each triangle.
 #' 
 #' @param mesh A \code{fmesher::fm_mesh_2d} object.
+#' @param plot If \code{TRUE} then triangle quality metrics are plotted.
 #' @return An object of class \code{sf} with the following data for each triangle in the
 #' triangulation
 #' \itemize{
@@ -236,7 +260,7 @@ mesh_2_sf <- function(mesh) {
 #' data(example_mesh, package = "mems")
 #' metrics <- mems(example_mesh)
 #' @export
-mems <- function(mesh) {
+mems <- function(mesh, plot = FALSE) {
   angles <- mesh_ang(mesh = mesh)
   tv <- mesh$graph$tv
   c_R <- i_R <- area <- numeric(nrow(tv))
@@ -268,6 +292,7 @@ mems <- function(mesh) {
   df <- cbind(df, do.call('rbind', quality_metrics))
   sf <- dplyr::left_join(sf, angles, by = "ID")
   sf <- dplyr::left_join(sf, df, by = "ID")
+  if(plot) print(gg_mems(sf))
   return(sf)
 }
 #' A range of triangle quality metrics
@@ -339,4 +364,41 @@ isoceles <- function(A, B, h = 1){
     y3 <- (n *sin(phi)) + A[2]
     return(c(x3, y3))
 }
-                
+#' Function to get mesh triangle center points of a \code{mesh} object
+#' @details Used for plotting label locations
+#' @inheritParams mems
+#' @export
+cens <- function(mesh){
+     mid <- t(apply(mesh$graph$tv, 1, function (x)
+         incircle_O(mesh$loc[x[1],1:2],mesh$loc[x[2],1:2],mesh$loc[x[3],1:2])))
+     df <- data.frame(triangle = paste("T",1:nrow(mid), sep = ""),
+                       x = mid[,1], y = mid[,2])
+     return(df)
+}
+#' Function to find the half way point of each
+#' mesh edge and turn into an \code{sf} \code{LINESTRING}
+#' object
+#' @inheritParams mems
+#' @export
+half_segments <- function(mesh){
+    ## mesh$vv is the node (vertex) association
+    ## mesh$tv is the triangle associations
+    mm <- mesh$graph$vv
+    dp <- diff(mm@p)
+    idx <- cbind(mm@i+1,rep(seq_along(dp),dp))
+    ## finding mid points from nodes
+    nodes <- cbind(mesh$loc[,1], mesh$loc[,2])
+    mp <- t(apply(idx, 1, function(x) mid(nodes[x[1], ], nodes[x[2],])))
+    df <- data.frame(start_x = mp[,1], start_y = mp[,2],
+                     end_x = nodes[idx[,1],1], end_y = nodes[idx[,1],2])
+    df$ID <- seq(nrow(df))
+    rows <- split(df, seq(nrow(df)))
+    lines <- lapply(rows, function(row) {
+        lmat <- matrix(unlist(row[1:4]), ncol = 2, byrow = TRUE)
+        sf::st_linestring(lmat)
+    })
+    lines <- sf::st_sfc(lines)
+    lines_sf <- sf::st_sf('ID' = df$ID, 'geometry' = lines)
+    return(lines_sf)
+}
+    

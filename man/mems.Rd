@@ -4,10 +4,12 @@
 \alias{mems}
 \title{Calculate a number of different geometric attributes of a Delaunay triangulation}
 \usage{
-mems(mesh)
+mems(mesh, plot = FALSE)
 }
 \arguments{
 \item{mesh}{A \code{fmesher::fm_mesh_2d} object.}
+
+\item{plot}{If \code{TRUE} then triangle quality metrics are plotted.}
 }
 \value{
 An object of class \code{sf} with the following data for each triangle in the

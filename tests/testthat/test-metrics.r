@@ -30,3 +30,10 @@ test_that("segments", {
     segs <- segments(example_mesh)
     expect_equal(round(segs$length[1], 3), 2.236)
 })
+test_that("mems plot", {
+    if(requireNamespace("sf")){
+    data(example_mesh, package = "mems")
+    meshmetrics <- mems(example_mesh)
+    expect_true(ggplot2::is.ggplot(gg_mems(meshmetrics)))
+    }
+})
