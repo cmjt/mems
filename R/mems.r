@@ -249,58 +249,9 @@ deldir_2_sf <- function(deldir) {
 #' where \eqn{l_{min}} is the minimum edge length;
 #' \item the radius ratio \code{radius_ratio} \eqn{\frac{r}{R}};
 #' \item \code{area}, area (\eqn{A});
-#' \item \code{quality} a measure of "quality" defined as
-#' \eqn{\frac{4\sqrt{3}|A|}{\Sigma_{i = 1}^3 L_i^2}},
-#' where \eqn{L_i} is the length of edge \eqn{i}.
-#' }
-#' @details A triangle's circumcircle (circumscribed circle) is the unique circle that passes
-#' through each of its three vertices. A triangle's incircle (inscribed circle) is the
-#' largest circle that can be contained within it (i.e., touches it's three edges).
-#' @examples
-#' data(example_mesh, package = "mems")
-#' metrics <- mems(example_mesh)
-#' @export
-mems <- function(mesh, plot = FALSE) {
-  angles <- mesh_ang(mesh = mesh)
-  tv <- mesh$graph$tv
-  c_R <- i_R <- area <- numeric(nrow(tv))
-  c_O <- i_O <- matrix(rep(0, 2 * nrow(tv)), ncol = 2)
-  quality_metrics  <- list()
-  for (i in 1:nrow(tv)) {
-    A <- mesh$loc[tv[i, 1], 1:2]
-    B <- mesh$loc[tv[i, 2], 1:2]
-    C <- mesh$loc[tv[i, 3], 1:2]
-    a <-  dist(B, C)
-    b <- dist(A, C)
-    c <- dist(A, B)
-    c_R[i] <- circum_R(A, B, C)
-    i_R[i] <- incircle_r(A, B, C)
-    c_O[i, ] <- circum_O(A, B, C)
-    i_O[i, ] <- incircle_O(A, B, C)
-    area[i] <- abs(tri_area(a = a, b = b,
-                            angC = ang(a, b, c)))
-    quality_metrics[[i]] <- metrics(a, b, c) |> as.data.frame()
-  }
-  mn <- lmin(mesh)
-  sf <- mesh_2_sf(mesh)
-  df <- data.frame(ID = 1:nrow(sf), incircle_r = i_R,
-                   circumcircle_R = c_R,
-                   c_Ox = c_O[, 1],  c_Oy = c_O[, 2],
-                   i_Ox = i_O[, 1],  i_Oy = i_O[, 2],
-                   radius_edge = c_R / mn, radius_ratio = i_R / c_R,
-                   area = area)
-  df <- cbind(df, do.call('rbind', quality_metrics))
-  sf <- dplyr::left_join(sf, angles, by = "ID")
-  sf <- dplyr::left_join(sf, df, by = "ID")
-  if(plot) print(gg_mems(sf))
-  return(sf)
-}
-#' A range of triangle quality metrics
-#'
-#' @inheritParams ang
-#' 
-#' @return A list of triangle 'quality' metrics collated in \url{https://doi.org/10.1016/j.finel.2019.01.010}
-#' \itemize{
+#' \item \code{metric_c1}: product of each triangle's nodes rowsums of the C1 matrix 
+#' \item \code{metric__g1}: product of each triangle's nodes rowsums of the G1 matrix 
+#' \item \code{metric_b1}: summation of each triangle's nodes rowsums of the B1 matrix 
 #' \item \code{metric_1}: \eqn{\frac{4\sqrt{3}|A|}{\Sigma_{i = 1}^3 L_i^2}},
 #' where \eqn{L_i} is the length of edge \eqn{i}.
 #' \item \code{metric_2}: \eqn{6 \sqrt{\frac{A}{\sqrt{3}}}}.
@@ -312,7 +263,57 @@ mems <- function(mesh, plot = FALSE) {
 #' \eqn{q_b = \frac{\Sigma_{i = 1}^3 L_i^2}{4 \sqrt{3} A}} and
 #' \eqn{q_m = (\frac{1}{3A})(\Sigma_{i = 1}^3 L_i)^2}.
 #' }
+#' @details A triangle's circumcircle (circumscribed circle) is the unique circle that passes
+#' through each of its three vertices. A triangle's incircle (inscribed circle) is the
+#' largest circle that can be contained within it (i.e., touches it's three edges).
+#' @examples
+#' data(example_mesh, package = "mems")
+#' metrics <- mems(example_mesh)
 #' @export
+mems <- function(mesh, plot = FALSE) {
+    angles <- mesh_ang(mesh = mesh)
+    tv <- mesh$graph$tv
+    fm <- fmesher::fm_fem(mesh)
+    c1 <- g1 <- b1 <- numeric(nrow(tv))
+    c_R <- i_R <- area <- numeric(nrow(tv))
+    c_O <- i_O <- matrix(rep(0, 2 * nrow(tv)), ncol = 2)
+    quality_metrics  <- list()
+    for (i in 1:nrow(tv)) {
+        c1[i] <- prod(sum(fm$c1[tv[i, 1],]), sum(fm$c1[tv[i, 2],]), sum(fm$c1[tv[i, 2],]))
+        g1[i] <- prod(sum(fm$g1[tv[i, 1],]), sum(fm$g1[tv[i, 2],]), sum(fm$g1[tv[i, 2],]))
+        b1[i] <- prod(sum(fm$b1[tv[i, 1],]), sum(fm$b1[tv[i, 2],]), sum(fm$b1[tv[i, 2],]))
+        A <- mesh$loc[tv[i, 1], 1:2]
+        B <- mesh$loc[tv[i, 2], 1:2]
+        C <- mesh$loc[tv[i, 3], 1:2]
+        a <-  dist(B, C)
+        b <- dist(A, C)
+        c <- dist(A, B)
+        c_R[i] <- circum_R(A, B, C)
+        i_R[i] <- incircle_r(A, B, C)
+        c_O[i, ] <- circum_O(A, B, C)
+        i_O[i, ] <- incircle_O(A, B, C)
+        area[i] <- abs(tri_area(a = a, b = b,
+                                angC = ang(a, b, c)))
+        quality_metrics[[i]] <- metrics(a, b, c) |> as.data.frame()
+    }
+    mn <- lmin(mesh)
+    sf <- mesh_2_sf(mesh)
+    df <- data.frame(ID = 1:nrow(sf), incircle_r = i_R,
+                     circumcircle_R = c_R,
+                     c_Ox = c_O[, 1],  c_Oy = c_O[, 2],
+                     i_Ox = i_O[, 1],  i_Oy = i_O[, 2],
+                     radius_edge = c_R / mn, radius_ratio = i_R / c_R,
+                     area = area, metric_c1 = c1,
+                     metric_g1 = g1, metric_b1 = b1)
+    df <- cbind(df, do.call('rbind', quality_metrics))
+    sf <- dplyr::left_join(sf, angles, by = "ID")
+    sf <- dplyr::left_join(sf, df, by = "ID")
+    if(plot) print(gg_mems(sf))
+    return(sf)
+}
+#' A range of triangle quality metrics
+#'
+#' @inheritParams ang
 metrics <- function(a, b, c){
     area <- abs(tri_area(a = a, b = b,
                          angC = ang(a, b, c)))
@@ -379,7 +380,6 @@ cens <- function(mesh){
 #' mesh edge and turn into an \code{sf} \code{LINESTRING}
 #' object
 #' @inheritParams mems
-#' @export
 half_segments <- function(mesh){
     ## mesh$vv is the node (vertex) association
     ## mesh$tv is the triangle associations
@@ -401,4 +401,31 @@ half_segments <- function(mesh){
     lines_sf <- sf::st_sf('ID' = df$ID, 'geometry' = lines)
     return(lines_sf)
 }
+#' Function to find which segments on boundary
+#' @inheritParams mems
+bound_half_segments <- function(mesh){
+    fm <- fmesher::fm_fem(mesh)
+    ## mesh verticies
+    mm <- mesh$graph$vv
+    ## Boundary segments
+    tmp <- fm$b1*mm
+    ## segments
+    dp <- diff(tmp@p)
+    idx <- cbind(tmp@i+1,rep(seq_along(dp),dp))
+    ## finding mid points from nodes
+    nodes <- cbind(mesh$loc[,1], mesh$loc[,2])
+    mp <- t(apply(idx, 1, function(x) mid(nodes[x[1], ], nodes[x[2],])))
+    df <- data.frame(start_x = mp[,1], start_y = mp[,2],
+                     end_x = nodes[idx[,1],1], end_y = nodes[idx[,1],2])
+    df$ID <- seq(nrow(df))
+    rows <- split(df, seq(nrow(df)))
+    lines <- lapply(rows, function(row) {
+        lmat <- matrix(unlist(row[1:4]), ncol = 2, byrow = TRUE)
+        sf::st_linestring(lmat)
+    })
+    lines <- sf::st_sfc(lines)
+    lines_sf <- sf::st_sf('ID' = df$ID, 'geometry' = lines)
+    return(lines_sf)
+}
+    
     

@@ -51,3 +51,48 @@ ggplot() +  geom_sf(data = deldir_2_sf(tiles),fill = col_vor,
 ```
 
 </details>
+
+## Triangle circumcircles and incircles
+
+Below shows the circumcircles and incircles of each triangle in a mesh (Delaunay triangulation). Each triangle (T1, ..., T4) is formed by the connection of three nodes (i.e., three of ni, i = 1,...,6) via an edge. A circumcircle (ircumscribed circle) of a triangle is a circle that passes through all three of its nodes (vertices). An incircle (inscribed circle) is a circle that is tangent to each of the traingles's sides (edges).
+
+
+![](https://github.com/cmjt/mems/blob/main/docs/circles.png?raw=true)
+
+<details>
+  <summary>Plot code</summary>
+
+```r
+mesh <- example_mesh
+mem <- mems(mesh)
+nodes <- data.frame(x = mesh$loc[,1], y = mesh$loc[,2])
+npoints <- 100
+## circumcircle
+circum <- apply(cbind(mem$c_Ox, mem$c_Oy, mem$circumcircle_R), 1,
+                function(x) circle(c(x[1], x[2]), x[3]*2, npoints = npoints))
+circum <- do.call('rbind', circum)
+circum$id <- rep(1:nrow(mem), each = npoints)
+## incircle
+incir <- apply(cbind(mem$i_Ox, mem$i_Oy, mem$incircle_r), 1,
+                function(x) circle(c(x[1], x[2]), x[3]*2, npoints = npoints))
+incir <- do.call('rbind', incir)
+incir$id <- rep(1:nrow(mem), each = npoints)
+## plot
+ggplot(mem) + geom_sf(fill = NA, linewidth = 2, col = "grey", alpha = 0.7) +
+    theme_void() +
+    geom_segment(aes(x = c_Ox, y = c_Oy, xend = c_Ox + circumcircle_R,
+                     yend = c_Oy, col = as.character(1:4))) +
+    geom_segment(aes(x = i_Ox, y = i_Oy, xend = i_Ox + incircle_r,
+                     yend = i_Oy,  col = as.character(1:4))) +
+    geom_point(aes(x = c_Ox, y = c_Oy, col = as.character(1:4)), pch = 18, size = 3) +
+    geom_point(aes(x = i_Ox, y = i_Oy, col = as.character(1:4))) +
+    geom_path(data = circum, aes(x, y, group = id, col = as.character(id)))  +
+    geom_path(data = incir, aes(x, y, group = id, col = as.character(id))) +
+    theme(legend.position = "none") +
+    geom_text(data = cens(mesh), aes(x = x, y = y,
+    label = triangle, col = as.character(1:4)),size = 7) +
+    geom_text(data = nodes, aes(x = x, y = y, label = paste("n", 1:nrow(nodes))), alpha = 0.8) +
+    scale_color_manual(values =  RColorBrewer::brewer.pal(4, "Dark2") )
+```
+
+</details>

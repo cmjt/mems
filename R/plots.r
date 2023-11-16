@@ -98,6 +98,7 @@ gg_seg_influence <- function(mesh){
     nodes$valg1 <- Matrix::diag(fm$g1)
     nodes$valb1 <- Matrix::diag(fm$b1)
     segs <- half_segments(mesh)
+    bound_segs <- bound_half_segments(mesh)
     ## Voronoi
     tesselation <- deldir::deldir(nodes$x, nodes$y)
     tiles <- deldir::tile.list(tesselation) 
@@ -107,6 +108,11 @@ gg_seg_influence <- function(mesh){
     lst <- split.data.frame(crd[, 1:2], crd[,3])
     cens <- lapply(lst, function(x) mid(x[1,], x[2,]))
     cents <- as.data.frame(do.call('rbind', cens))
+    ## label points for boundary line segments
+    crd <- sf::st_coordinates(bound_segs)
+    lst <- split.data.frame(crd[, 1:2], crd[,3])
+    cens <- lapply(lst, function(x) mid(x[1,], x[2,]))
+    centsb1 <- as.data.frame(do.call('rbind', cens))
     ## dataframe C1
     dfc1 <- data.frame(row = (fm$c1@i + 1), col = (fm$c1@j + 1), val = fm$c1@x)
     ## remove off diag elements
@@ -128,7 +134,28 @@ gg_seg_influence <- function(mesh){
         geom_text(data = cents, aes(x = X, y = Y, label = round(dfg1$val,3))) + 
         geom_point(data = nodes, aes(x = x, y = y, col = valg1), size = 10,) +
         geom_text(data = nodes, aes(x = x, y = y, label = round(valg1, 3))) +
-        theme_void() + ggtitle("G1") + theme(legend.position = "none")  
-     patchwork::wrap_plots(plt_C1, plt_G1, nrow = 1) & 
+        theme_void() + ggtitle("G1") + theme(legend.position = "none")
+    ## dataframe B1
+    dfb1 <- data.frame(row = (fm$b1@i + 1), col = (fm$b1@j + 1), val = fm$b1@x)
+    ## remove diag elements
+    dfb1 <- dfb1[-which(dfb1$row - dfb1$col == 0),]
+    plt_B1 <- ggplot() + geom_sf(data = vor,fill = NA,
+                                 linetype = 2, alpha = 0.3) +
+        geom_sf(data = mesh_2_sf(mesh), fill = NA, col = "grey") +
+        geom_point(data = nodes, aes(x = x, y = y), col = "grey") +
+        geom_sf(data = bound_segs, aes(col = dfb1$val), linewidth = 3, alpha = 0.7) +
+        geom_text(data = centsb1, aes(x = X, y = Y, label = round(dfb1$val,3))) + 
+        geom_point(data = nodes[Matrix::diag(fm$b1) != 0, ], aes(x = x, y = y, col = valb1), size = 10) +
+        geom_text(data = nodes[Matrix::diag(fm$b1) != 0, ], aes(x = x, y = y, label = round(valb1, 3))) +
+        theme_void() + ggtitle("B1") + theme(legend.position = "none")
+     patchwork::wrap_plots(plt_C1, plt_G1, plt_B1, nrow = 1) & 
         scale_fill_continuous(type = "viridis", na.value = NA)
+}
+#' Plot circle
+circle <- function(center = c(0,0),diameter = 1, npoints = 100){
+    r = diameter / 2
+    tt <- seq(0,2*pi,length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    return(data.frame(x = xx, y = yy))
 }

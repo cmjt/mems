@@ -7,6 +7,9 @@
 \usage{
 gg_mems(x)
 }
+\arguments{
+\item{x}{output of \code{mems::mems}}
+}
 \value{
 A  \code{"patchwork"}, \code{"gg"}, \code{"ggplot"} object.
 }
