@@ -13,7 +13,7 @@ devtools::install_github("mems")
 
 ## mesh triangles
 
-Below is an illustration of mesh (Delaunay triangulation) elements. Each triangle (T1, ..., T4) is formed by the connection of three nodes (i.e., three of ni, i = 1,...,6) via an edge. Each node *influence* can be thought of as proportional to the area of the Voronoi cell (coloured polygon) centred at that node. The *influence* of each triangle (T1, ..., T4) on each node (n1, ..., n6) is illustrated by each coloured line segment (i.e., the *length* of the edged connected to each node within the surrounding Voronoi cell).
+Below is an illustration of mesh (Delaunay triangulation) elements. Each triangle (T1, ..., T4) is formed by the connection of three nodes (i.e., three of ni, i = 1,...,6) via an edge. Each node *influence* can be thought of as proportional to the area of the Voronoi cell (coloured polygon) centred at that node.  In fact, the diagonal elemens of **C0**, **C_{ii}** are equal to the sum of one third the area of each triangle that the node *i* is part of. The *influence* of each triangle (T1, ..., T4) on each node (n1, ..., n6) is illustrated by each coloured line segment (i.e., the *length* of the edged connected to each node within the surrounding Voronoi cell).
 
 
 ![](https://github.com/cmjt/mems/blob/main/docs/example_mesh_attributes.png?raw=true)
@@ -23,7 +23,6 @@ Below is an illustration of mesh (Delaunay triangulation) elements. Each triangl
   
 ```r
 ## packages & data
-require(deldir)
 require(sf)
 require(ggplot2)
 require(mems)
@@ -31,16 +30,14 @@ data(example_mesh, package = "mems")
 mesh <- example_mesh
 ## manipulation
 nodes <- data.frame(x = mesh$loc[,1], y = mesh$loc[,2])
-tesselation <- deldir(nodes$x, nodes$y)
-tiles <- tile.list(tesselation) ## voronoi diagram (extends outside boundary)
-vor <- deldir_2_sf(tiles)
+vor <- mems:::dual_mesh(mesh)
 sf <- mesh_2_sf(mesh)
 lin_sf <- half_segments(mesh)
 col_vor <- RColorBrewer::brewer.pal(6,"Dark2") 
 col_lin_sf <- col_vor[(st_intersection(vor, lin_sf) %>%
-    subset(., st_geometry_type(st_geometry(.)) == "LINESTRING"))$id]
+    subset(., st_geometry_type(st_geometry(.)) == "LINESTRING"))$ID]
 ## plot
-ggplot() +  geom_sf(data = deldir_2_sf(tiles),fill = col_vor,
+ggplot() +  geom_sf(data = vor,fill = col_vor,
                     linetype = 2, alpha = 0.3) +
     geom_sf(data = sf, fill = NA, linewidth = 1) +
     geom_sf(data = lin_sf, col = col_lin_sf, linewidth = 2, alpha = 0.5) + 
