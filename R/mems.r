@@ -131,8 +131,8 @@ segments <- function(mesh) {
                          b = mesh$loc[mesh$graph$tv[, 2], c(1, 2)]),
               data.frame(a = mesh$loc[mesh$graph$tv[, 2], c(1, 2)],
                          b = mesh$loc[mesh$graph$tv[, 3], c(1, 2)]),
-              data.frame(a = mesh$loc[mesh$graph$tv[, 1], c(1, 2)],
-                         b = mesh$loc[mesh$graph$tv[, 3], c(1, 2)]))
+              data.frame(a = mesh$loc[mesh$graph$tv[, 3], c(1, 2)],
+                         b = mesh$loc[mesh$graph$tv[, 1], c(1, 2)]))
   colnames(df) <- c("x", "y", "xend", "yend")
   df$length <- c(unlist(dist(df[, 1:2], df[, 3:4])))
   return(df)
@@ -233,6 +233,8 @@ deldir_2_sf <- function(deldir) {
 #' 
 #' @param mesh A \code{fmesher::fm_mesh_2d} object.
 #' @param plot If \code{TRUE} then triangle quality metrics are plotted.
+#' @param metric character specifying which metric of \code{x} to plot one of "metric_1",
+#' "metric_2", "metric_3", "metric_4", "metric_5", "metric_6" (default "metric_1"), ignored if \code{plot = FALSE}.
 #' @return An object of class \code{sf} with the following data for each triangle in the
 #' triangulation
 #' \itemize{
@@ -270,7 +272,7 @@ deldir_2_sf <- function(deldir) {
 #' data(example_mesh, package = "mems")
 #' metrics <- mems(example_mesh)
 #' @export
-mems <- function(mesh, plot = FALSE) {
+mems <- function(mesh, plot = FALSE, metric = "metric_1") {
     angles <- mesh_ang(mesh = mesh)
     tv <- mesh$graph$tv
     fm <- fmesher::fm_fem(mesh)
@@ -279,9 +281,9 @@ mems <- function(mesh, plot = FALSE) {
     c_O <- i_O <- matrix(rep(0, 2 * nrow(tv)), ncol = 2)
     quality_metrics  <- list()
     for (i in 1:nrow(tv)) {
-        c1[i] <- prod(sum(fm$c1[tv[i, 1],]), sum(fm$c1[tv[i, 2],]), sum(fm$c1[tv[i, 2],]))
-        g1[i] <- prod(sum(fm$g1[tv[i, 1],]), sum(fm$g1[tv[i, 2],]), sum(fm$g1[tv[i, 2],]))
-        b1[i] <- prod(sum(fm$b1[tv[i, 1],]), sum(fm$b1[tv[i, 2],]), sum(fm$b1[tv[i, 2],]))
+        c1[i] <- sum(sum(fm$c1[tv[i, 1],]), sum(fm$c1[tv[i, 2],]), sum(fm$c1[tv[i, 3],]))
+        g1[i] <- sum(fm$g1[tv[i, 1],tv[i, 1]], fm$g1[tv[i, 2],tv[i, 2]], fm$g1[tv[i, 3],tv[i, 3]])
+        b1[i] <- sum(fm$b1[tv[i, 1], tv[i, 1]], fm$b1[tv[i, 2], tv[i, 2]], fm$b1[tv[i, 3],tv[i, 3]])
         A <- mesh$loc[tv[i, 1], 1:2]
         B <- mesh$loc[tv[i, 2], 1:2]
         C <- mesh$loc[tv[i, 3], 1:2]
@@ -308,7 +310,7 @@ mems <- function(mesh, plot = FALSE) {
     df <- cbind(df, do.call('rbind', quality_metrics))
     sf <- dplyr::left_join(sf, angles, by = "ID")
     sf <- dplyr::left_join(sf, df, by = "ID")
-    if(plot) print(gg_mems(sf))
+    if(plot) print(gg_mems(sf, metric = metric))
     return(sf)
 }
 #' A range of triangle quality metrics
@@ -429,3 +431,52 @@ bound_half_segments <- function(mesh){
 }
     
     
+#' Internal function to construct the dual mesh
+#'
+#' @param mesh A spatial mesh of class \code{fmesher::fm_mesh_2d()}.
+#' @return An\ simple features, code{sf}, object of the Voronoi tessellation
+#' centered at each \code{mesh} node.
+#' @source \url{http://www.r-inla.org/spde-book},  \url{https://becarioprecario.bitbucket.io/spde-gitbook/}
+#' @noRd
+dual_mesh <- function(mesh) {
+    if (mesh$manifold == 'R2') {
+        ce <- t(sapply(1:nrow(mesh$graph$tv), function(i)
+            colMeans(mesh$loc[mesh$graph$tv[i, ], 1:2])))
+        pls <- lapply(1:mesh$n, function(i) {
+            p <- unique(Reduce('rbind', lapply(1:3, function(k) {
+                j <- which(mesh$graph$tv[, k] == i)
+                if (length(j) > 0)
+                    return(rbind(ce[j, , drop = FALSE],
+                                 cbind(mesh$loc[mesh$graph$tv[j, k], 1] +
+                                       mesh$loc[mesh$graph$tv[j, c(2:3, 1)[k]], 1],
+                                       mesh$loc[mesh$graph$tv[j, k], 2] +
+                                       mesh$loc[mesh$graph$tv[j, c(2:3, 1)[k]], 2]) / 2))
+                else return(ce[j, , drop = FALSE])
+            })))
+            j1 <- which(mesh$segm$bnd$idx[, 1] == i)
+            j2 <- which(mesh$segm$bnd$idx[, 2] == i)
+            if ((length(j1) > 0) | (length(j2) > 0)) {
+                p <- unique(rbind(mesh$loc[i, 1:2], p,
+                                  mesh$loc[mesh$segm$bnd$idx[j1, 1], 1:2] / 2 +
+                                  mesh$loc[mesh$segm$bnd$idx[j1, 2], 1:2] / 2,
+                                  mesh$loc[mesh$segm$bnd$idx[j2, 1], 1:2] / 2 +
+                                  mesh$loc[mesh$segm$bnd$idx[j2, 2], 1:2] / 2))
+                yy <- p[, 2] - mean(p[, 2]) / 2 - mesh$loc[i, 2] / 2
+                xx <- p[, 1] - mean(p[, 1]) / 2 - mesh$loc[i, 1] / 2
+            }
+            else {
+                yy <- p[, 2] - mesh$loc[i, 2]
+                xx <- p[, 1] - mesh$loc[i, 1]
+            }
+            p <- p[order(atan2(yy, xx)), ]
+            ## close polygons
+            p <- rbind(p, p[1, ])
+            sf::st_polygon(list(p))
+        })
+        geometry <- sf::st_sfc(pls)
+        dat <- data.frame(ID = 1:length(geometry))
+        return(sf::st_sf(dat,
+                         geometry = geometry))
+    }
+    else stop("It only works for R2!")
+}

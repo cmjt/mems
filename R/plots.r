@@ -1,78 +1,108 @@
 #' Plots the calculated metrics from a \code{mems} output
 #' (i.e., each triangle metric).
 #' @param x output of \code{mems::mems}
-#' @return A  \code{"patchwork"}, \code{"gg"}, \code{"ggplot"} object.
+#' @param metric character specifying which metric of \code{x} to plot one of "metric_1",
+#' "metric_2", "metric_3", "metric_4", "metric_5", "metric_6"  (default "metric_1").
+#' @return A  \code{"ggplot"} object.
 #' @export
-gg_mems <- function(x){
-    m1 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_1)) +
-        ggplot2::labs(title = expression(paste("Metric = ",
-                                               frac(4*sqrt(3)*abs(A),Sigma[i = 1]^3 *l[i]^2))))
-    m2 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_2))+
-        ggplot2::labs(title = expression(paste("Metric = ",
-                                               6*sqrt(frac(A, sqrt(3))))))
-    m3 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_3)) +
-        ggplot2::labs(title = expression(paste("Metric = ",
-                                               frac("min("~underline(bold(l))~")",
-                                                    "max("~underline(bold(l))~")"))))
-    m4 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_4)) +
-        ggplot2::labs(title = expression(paste("Metric = ",
-                                               3 * frac("min("~underline(bold(phi))~")", pi))))
-    m5 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_5)) +
-        ggplot2::labs(title = expression(paste("Metric = ",
-                                               frac(4 *sqrt(3) * A,
-                                                    "max("~underline(bold(l))~")") * Sigma[i = 1]^3 * l[i]^2)))
-    m6 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_6))  +
-        ggplot2::labs(title = expression(paste("Metric = ",
-                                              frac(1, 4*q[b]) + q[w] * frac(sqrt(3),16))))
-    patchwork::wrap_plots(m1, m2, m3, m4, m5, m6, nrow = 3) &
-        ggplot2::theme_void()
+gg_mems <- function(x, metric = "m1"){
+    opts <- c("metric_1", "metric_2", "metric_3", "metric_4", "metric_5", "metric_6" )
+    if(!(metric %in% opts)) stop("Please provide a valide metric")
+    if(metric == "metric_1"){
+        m1 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_1)) +
+            ggplot2::labs(title = expression(paste("Metric = ",
+                                                   frac(4*sqrt(3)*abs(A),Sigma[i = 1]^3 *l[i]^2))))
+        m1 + ggplot2::theme_void()
+    }else{ if(metric == "metric_2") {
+               m2 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_2))+
+                   ggplot2::labs(title = expression(paste("Metric = ",
+                                                          6*sqrt(frac(A, sqrt(3))))))
+               m2 + ggplot2::theme_void()
+           }else{if(metric == "metric_3") {
+                     m3 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_3)) +
+                         ggplot2::labs(title = expression(paste("Metric = ",
+                                                                frac("min("~underline(bold(l))~")",
+                                                                     "max("~underline(bold(l))~")"))))
+                     m3 + ggplot2::theme_void()
+                 }else{if(metric == "metric_4") {
+                           m4 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_4)) +
+                               ggplot2::labs(title = expression(paste("Metric = ",
+                                                                      3 * frac("min("~underline(bold(phi))~")",
+                                                                               pi))))
+                           m4 + ggplot2::theme_void()
+                       }else{if(metric == "metric_5") {
+                                 m5 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_5)) +
+                                     ggplot2::labs(title = expression(paste("Metric = ",
+                                                                            frac(4 *sqrt(3) * A,
+                                                                                 "max("~underline(bold(l))~")") * Sigma[i = 1]^3 * l[i]^2)))
+                                 m5 + ggplot2::theme_void()
+                             }else{if(metric == "metric_6") {
+                                       m6 <- ggplot2::ggplot(x) + ggplot2::geom_sf(ggplot2::aes(fill = metric_6))  +
+                                           ggplot2::labs(title = expression(paste("Metric = ",
+                                                                                  frac(1, 4*q[b]) + q[w] * frac(sqrt(3),16))))
+                                       m6 + ggplot2::theme_void()
+                                   }
+                             }
+                       }
+                 }
+           }
+    }
+   
 }
 #' Plots Q blocks contribution of nodes
 #' only useful for small number of nodes
 #' @inheritParams mems
+#' @param element One of "C1", "G1", "B1", corresponding matricies from \code{fmesher::fm_fem()},
+#' default "C1".
 #' @export
-gg_qblocks <- function(mesh){
+gg_qblocks <- function(mesh, element = "C1"){
+    opts <- c("C1", "G1", "B1")
+    if(!(element %in% opts)) stop("element should be one of C1, G1, or B1")
     fm <- fmesher::fm_fem(mesh) ## mems q_block to test
     nv <- mesh$n
     ## initialise matricies
     matc1 <- matg1 <- matb1 <- matrix(NA, ncol = nv, nrow = nv)
-    ## C1
-    matc1[cbind((fm$c1@i + 1), (fm$c1@j + 1))] <- fm$c1@x 
-    c1.df <- reshape2::melt(matc1, c("x", "y"), value.name = "z")
-    plt_C1 <- ggplot(data = c1.df, aes(x = y,y = -x,fill = z)) +
-        geom_tile(size = 1.5, alpha = 0.8) + 
-        scale_x_continuous(breaks = seq(1, nv, 1), labels = paste("n",1:nv,sep = ""),
-                           expand = c(0, 0), position = "top") +
-        scale_y_continuous(breaks = -nv:-1,labels = paste("n",nv:1,sep = ""), expand = c(0, 0)) +
-        labs(fill = "C1") + xlab("") + ylab("") +
-        geom_text( aes(label = round(z, 3)), color="black", size=rel(4)) +
-        ggtitle("C1")
-    ## G1
-    matg1[cbind((fm$g1@i + 1), (fm$g1@j + 1))] <- fm$g1@x 
-    g1.df <- reshape2::melt(matg1, c("x", "y"), value.name = "z")
-    plt_G1 <- ggplot(data = g1.df, aes(x = y,y = -x,fill = z)) +
-        geom_tile(size = 1.5, alpha = 0.8) + 
-        scale_x_continuous(breaks = seq(1, nv, 1), labels = paste("n",1:nv,sep = ""),
-                           expand = c(0, 0), position = "top") +
-        scale_y_continuous(breaks = -nv:-1,labels = paste("n",nv:1,sep = ""), expand = c(0, 0)) +
-        labs(fill = "G1") + xlab("") + ylab("") +
-        geom_text( aes(label = round(z, 3)), color="black", size=rel(4)) +
-        ggtitle("G1")
-
-    ## B1
-    matb1[cbind((fm$b1@i + 1), (fm$b1@j + 1))] <- fm$b1@x 
-    b1.df <- reshape2::melt(matb1, c("x", "y"), value.name = "z")
-    plt_B1 <- ggplot(data = b1.df, aes(x = y,y = -x,fill = z)) +
-        geom_tile(size = 1.5, alpha = 0.8) + 
-        scale_x_continuous(breaks = seq(1, nv, 1), labels = paste("n",1:nv,sep = ""),
-                           expand = c(0, 0), position = "top") +
-        scale_y_continuous(breaks = -nv:-1,labels = paste("n",nv:1,sep = ""), expand = c(0, 0)) +
-        labs(fill = "B1") + xlab("") + ylab("") +
-        geom_text( aes(label = round(z, 3)), color="black", size=rel(4)) +
-        ggtitle("B1")
-
-    ## plot all matricies
-    patchwork::wrap_plots(plt_C1, plt_G1,plt_B1, nrow = 1) & 
+    if(element == "C1"){
+        ## C1
+        matc1[cbind((fm$c1@i + 1), (fm$c1@j + 1))] <- fm$c1@x 
+        c1.df <- reshape2::melt(matc1, c("x", "y"), value.name = "z")
+        plt <- ggplot(data = c1.df, aes(x = y,y = -x,fill = z)) +
+            geom_tile(size = 1.5, alpha = 0.8) + 
+            scale_x_continuous(breaks = seq(1, nv, 1), labels = paste("n",1:nv,sep = ""),
+                               expand = c(0, 0), position = "top") +
+            scale_y_continuous(breaks = -nv:-1,labels = paste("n",nv:1,sep = ""), expand = c(0, 0)) +
+            labs(fill = "C1") + xlab("") + ylab("") +
+            geom_text( aes(label = round(z, 3)), color="black", size=rel(4)) +
+            ggtitle("C1")
+    }else{if(element == "G1"){
+              ## G1
+              matg1[cbind((fm$g1@i + 1), (fm$g1@j + 1))] <- fm$g1@x 
+              g1.df <- reshape2::melt(matg1, c("x", "y"), value.name = "z")
+              plt <- ggplot(data = g1.df, aes(x = y,y = -x,fill = z)) +
+                  geom_tile(size = 1.5, alpha = 0.8) + 
+                  scale_x_continuous(breaks = seq(1, nv, 1), labels = paste("n",1:nv,sep = ""),
+                                     expand = c(0, 0), position = "top") +
+                  scale_y_continuous(breaks = -nv:-1,labels = paste("n",nv:1,sep = ""), expand = c(0, 0)) +
+                  labs(fill = "G1") + xlab("") + ylab("") +
+                  geom_text( aes(label = round(z, 3)), color="black", size=rel(4)) +
+                  ggtitle("G1")
+          }else{if(element == "B1"){
+                    ## B1
+                    matb1[cbind((fm$b1@i + 1), (fm$b1@j + 1))] <- fm$b1@x 
+                    b1.df <- reshape2::melt(matb1, c("x", "y"), value.name = "z")
+                    plt <- ggplot(data = b1.df, aes(x = y,y = -x,fill = z)) +
+                        geom_tile(size = 1.5, alpha = 0.8) + 
+                        scale_x_continuous(breaks = seq(1, nv, 1), labels = paste("n",1:nv,sep = ""),
+                                           expand = c(0, 0), position = "top") +
+                        scale_y_continuous(breaks = -nv:-1,labels = paste("n",nv:1,sep = ""), expand = c(0, 0)) +
+                        labs(fill = "B1") + xlab("") + ylab("") +
+                        geom_text( aes(label = round(z, 3)), color="black", size=rel(4)) +
+                        ggtitle("B1")
+                }
+          }
+    }
+    ## plot 
+    plt +
         scale_fill_continuous(type = "viridis", na.value = NA) &
         theme(panel.grid.major = element_blank(),
               panel.grid.minor = element_blank(),
@@ -88,8 +118,11 @@ gg_qblocks <- function(mesh){
 #' Plot segment influence
 #' only useful for small number of nodes
 #' @inheritParams mems
+#' @inheritParams gg_qblocks
 #' @export
-gg_seg_influence <- function(mesh){
+gg_seg_influence <- function(mesh, element = "C1"){
+    opts <- c("C1", "G1", "B1")
+    if(!(element %in% opts)) stop("element should be one of C1, G1, or B1")
     nv <- mesh$n
     nodes <- data.frame(x = mesh$loc[,1], y = mesh$loc[,2])
     fm <- fmesher::fm_fem(mesh)
@@ -100,9 +133,7 @@ gg_seg_influence <- function(mesh){
     segs <- half_segments(mesh)
     bound_segs <- bound_half_segments(mesh)
     ## Voronoi
-    tesselation <- deldir::deldir(nodes$x, nodes$y)
-    tiles <- deldir::tile.list(tesselation) 
-    vor <- deldir_2_sf(tiles)
+    vor <- dual_mesh(mesh)
     ## label points for line segments
     crd <- sf::st_coordinates(segs)
     lst <- split.data.frame(crd[, 1:2], crd[,3])
@@ -113,42 +144,49 @@ gg_seg_influence <- function(mesh){
     lst <- split.data.frame(crd[, 1:2], crd[,3])
     cens <- lapply(lst, function(x) mid(x[1,], x[2,]))
     centsb1 <- as.data.frame(do.call('rbind', cens))
-    ## dataframe C1
-    dfc1 <- data.frame(row = (fm$c1@i + 1), col = (fm$c1@j + 1), val = fm$c1@x)
-    ## remove off diag elements
-    dfc1 <- dfc1[-which(dfc1$row - dfc1$col == 0),]
-    plt_C1 <- ggplot() + geom_sf(data = vor,fill = NA,
-                                 linetype = 2, alpha = 0.3) +
-        geom_sf(data = segs, aes(col = dfc1$val), linewidth = 3, alpha = 0.7) +
-        geom_text(data = cents, aes(x = X, y = Y, label = round(dfc1$val,3))) + 
-        geom_point(data = nodes, aes(x = x, y = y, col = valc1), size = 10,) +
-        geom_text(data = nodes, aes(x = x, y = y, label = round(valc1, 3))) +
-        theme_void() + ggtitle("C1") + theme(legend.position = "none")
-    ## dataframe G1
-    dfg1 <- data.frame(row = (fm$g1@i + 1), col = (fm$g1@j + 1), val = fm$g1@x)
-    ## remove off diag elements
-    dfg1 <- dfg1[-which(dfg1$row - dfg1$col == 0),]
-    plt_G1 <- ggplot() + geom_sf(data = vor,fill = NA,
-                                 linetype = 2, alpha = 0.3) +
-        geom_sf(data = segs, aes(col = dfg1$val), linewidth = 3, alpha = 0.7) +
-        geom_text(data = cents, aes(x = X, y = Y, label = round(dfg1$val,3))) + 
-        geom_point(data = nodes, aes(x = x, y = y, col = valg1), size = 10,) +
-        geom_text(data = nodes, aes(x = x, y = y, label = round(valg1, 3))) +
-        theme_void() + ggtitle("G1") + theme(legend.position = "none")
-    ## dataframe B1
-    dfb1 <- data.frame(row = (fm$b1@i + 1), col = (fm$b1@j + 1), val = fm$b1@x)
-    ## remove diag elements
-    dfb1 <- dfb1[-which(dfb1$row - dfb1$col == 0),]
-    plt_B1 <- ggplot() + geom_sf(data = vor,fill = NA,
-                                 linetype = 2, alpha = 0.3) +
-        geom_sf(data = mesh_2_sf(mesh), fill = NA, col = "grey") +
-        geom_point(data = nodes, aes(x = x, y = y), col = "grey") +
-        geom_sf(data = bound_segs, aes(col = dfb1$val), linewidth = 3, alpha = 0.7) +
-        geom_text(data = centsb1, aes(x = X, y = Y, label = round(dfb1$val,3))) + 
-        geom_point(data = nodes[Matrix::diag(fm$b1) != 0, ], aes(x = x, y = y, col = valb1), size = 10) +
-        geom_text(data = nodes[Matrix::diag(fm$b1) != 0, ], aes(x = x, y = y, label = round(valb1, 3))) +
-        theme_void() + ggtitle("B1") + theme(legend.position = "none")
-     patchwork::wrap_plots(plt_C1, plt_G1, plt_B1, nrow = 1) & 
+    if(element == "C1") {
+        ## dataframe C1
+        dfc1 <- data.frame(row = (fm$c1@i + 1), col = (fm$c1@j + 1), val = fm$c1@x)
+        ## remove off diag elements
+        dfc1 <- dfc1[-which(dfc1$row - dfc1$col == 0),]
+        plt <- ggplot() + geom_sf(data = vor,fill = NA,
+                                  linetype = 2, alpha = 0.3) +
+            geom_sf(data = segs, aes(col = dfc1$val), linewidth = 3, alpha = 0.7) +
+            geom_text(data = cents, aes(x = X, y = Y, label = round(dfc1$val,3))) + 
+            geom_point(data = nodes, aes(x = x, y = y, col = valc1), size = 10,) +
+            geom_text(data = nodes, aes(x = x, y = y, label = round(valc1, 3))) +
+            theme_void() + ggtitle("C1") + theme(legend.position = "none")
+    }else{if(element == "G1"){
+              ## dataframe G1
+              dfg1 <- data.frame(row = (fm$g1@i + 1), col = (fm$g1@j + 1), val = fm$g1@x)
+              ## remove off diag elements
+              dfg1 <- dfg1[-which(dfg1$row - dfg1$col == 0),]
+              plt <- ggplot() + geom_sf(data = vor,fill = NA,
+                                        linetype = 2, alpha = 0.3) +
+                  geom_sf(data = segs, aes(col = dfg1$val), linewidth = 3, alpha = 0.7) +
+                  geom_text(data = cents, aes(x = X, y = Y, label = round(dfg1$val,3))) + 
+                  geom_point(data = nodes, aes(x = x, y = y, col = valg1), size = 10,) +
+                  geom_text(data = nodes, aes(x = x, y = y, label = round(valg1, 3))) +
+                  theme_void() + ggtitle("G1") + theme(legend.position = "none")
+          }else{if(element == "B1"){
+                    ## dataframe B1
+                    dfb1 <- data.frame(row = (fm$b1@i + 1), col = (fm$b1@j + 1), val = fm$b1@x)
+                    ## remove diag elements
+                    dfb1 <- dfb1[-which(dfb1$row - dfb1$col == 0),]
+                    plt <- ggplot() + geom_sf(data = vor,fill = NA,
+                                              linetype = 2, alpha = 0.3) +
+                        geom_sf(data = mesh_2_sf(mesh), fill = NA, col = "grey") +
+                        geom_point(data = nodes, aes(x = x, y = y), col = "grey") +
+                        geom_sf(data = bound_segs, aes(col = dfb1$val), linewidth = 3, alpha = 0.7) +
+                        geom_text(data = centsb1, aes(x = X, y = Y, label = round(dfb1$val,3))) + 
+                        geom_point(data = nodes[Matrix::diag(fm$b1) != 0, ], aes(x = x, y = y, col = valb1), size = 10) +
+                        geom_text(data = nodes[Matrix::diag(fm$b1) != 0, ], aes(x = x, y = y, label = round(valb1, 3))) +
+                        theme_void() + ggtitle("B1") + theme(legend.position = "none")
+                }
+          }
+    }
+    
+    plt +
         scale_fill_continuous(type = "viridis", na.value = NA)
 }
 #' Plot circle
