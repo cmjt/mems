@@ -1,0 +1,294 @@
+---
+title: ""
+output: html_document
+bibliography: references.bib
+date: ""
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, eval = TRUE, warning = FALSE, messgae = FALSE)
+library(tidyverse)
+library(ggplot2)
+library(ggforce)
+library(Matrix)
+library(sf)
+devtools::load_all("~/Git/mems")
+```
+
+
+## Some geometric definitions
+
+
+
+A triangle $T$ has three vertices A, B, C, with the three opposing edge vectors given by **a**, **b**, and **c**. The three interior angles $\theta_a$, $\theta_b$, and $\theta_c$ are opposite each edge **a**, **b**, and **c**.
+
+```{r}
+A <- c(1, 1)
+B <- c(2, 1)
+C <- c(1.25, 1.5)
+tri <- data.frame(rbind(A, A, B, B, C, C), rbind(B, C, C, A, A, B))
+names(tri) <- c("x", "y","xend", "yend"); rownames(tri) <- NULL
+and <- with(tri, atan2(xend - x, yend - y))
+edge  <- data.frame(edge = c("a", "b", "c"))
+mid <- rbind(mid(B, C), mid(A, C), mid(A, B))
+edge$x <- mid[,1]; edge$y <- mid[,2]
+plt <- ggplot(tri) + geom_segment(aes(x, y, xend = xend, yend = yend), linewidth = 2) +
+  theme_void() +
+  geom_arc(aes(x0 = A[1],y0 = A[2], start = and[1], end = and[2], r = 0.2)) + 
+   geom_arc(aes(x0 = B[1],y0 = B[2], start = and[3], end = and[4], r = 0.2)) + 
+   geom_arc(aes(x0 = C[1],y0 = C[2], start =  2*pi + and[5], end = and[6], r = 0.2)) + 
+  coord_fixed() + geom_point(data = unique(tri[,1:2]), aes(x = x, y = y), size = 10) +
+    geom_text(data = unique(tri[,1:2]), aes(x = x, y = y, label = c("A", "B", "C")), col = "white") +
+  expand_limits(y = c(0.9, 1.6), x = c(0.9, 2.1)) +
+  geom_text(data = edge, aes(x = x + c(0, -0.05, 0), y = y + c(0.05, 0, -0.05), label = edge), fontface = "bold")
+p <- ggplot_build(plt)
+m <- sapply(c(2, 3, 4), function(h) p$data[[h]] %>% summarize(x = mean(x), y = mean(y))) |> t()
+m <- data.frame(x = unlist(m[,1]), y = unlist(m[,2]))
+
+plt + geom_text(data = m, aes(x = x + c(-0.05,  0.05, -0.025), y = y + c(-0.025,-0.025,0.05)), 
+                label = c(expression(theta[a]), expression(theta[b]), expression(theta[c])))
+
+```
+
+The minimum edge length of $T$ is given by $l_\text{min}$ with opposite (minimum) angle $\theta_\text{min}$. The circumcircle of $T$ is a circle that passes through all the vertices of $T$ with radius $R$ and center $C$. The incircle of $T$ is the largest circle contained in the triangle tangent to the three edges. The incircle has radius $r$ and center $c$. 
+
+```{r}
+tri <- unique(tri[,1:2])
+del <- deldir::deldir(tri)
+O <- mems:::circum_O(A, B, C)
+R <-  mems:::circum_R(A, B, C)
+iO <-  mems:::incircle_O(A, B, C)
+r <-  mems:::incircle_r(A, B, C)
+par(xpd = TRUE)
+plot(del, wlines = "triang", asp = 1, ylim = c(0.8, 1.6), xlim = c(0.9, 2.1),
+     pch = 20, lwd = 2, cex = 4)
+points(O[1], O[2], pch = 4, lwd = 3)
+## circumcircle
+plotrix::draw.circle(O[1], O[2], R)
+arrows(O[1], O[2], tri[1,1], tri[1, 2], length = 0, lty = 2)
+arrows(O[1], O[2], tri[2,1], tri[2, 2], length = 0, lty = 2)
+arrows(O[1], O[2], tri[3,1], tri[3, 2], length = 0, lty = 2)
+## text
+text(tri,labels = c("A","B", "C"), col = "white")
+text(O[1],O[2] + 0.05, labels = expression( italic("C")))
+Rlab <-  mems::mid(O, C)
+text(Rlab[1] + 0.025, Rlab[2],  labels = expression( italic("R")))
+lminlab <-  mems::mid(A, C)
+text(lminlab[1]- 0.035, lminlab[2],  labels = expression("\u2113"[min]))
+text(B[1] - 0.15, B[2] + 0.05, expression(theta[min]))
+plotrix::draw.arc(B[1], B[2], 0.25, deg1 = 180, deg2 = 146)
+## incircle
+points(iO[1], iO[2], pch = 20, col = "grey")
+plotrix::draw.circle(iO[1], iO[2], r, border = "grey")
+arrows(iO[1], iO[2], tri[1,1], tri[1, 2], length = 0, lty = 2, col = "grey")
+arrows(iO[1], iO[2], tri[2,1], tri[2, 2], length = 0, lty = 2, col = "grey")
+arrows(iO[1], iO[2], tri[3,1], tri[3, 2], length = 0, lty = 2, col = "grey")
+## stuff for point on AC line
+perpn <- function(x1, y1, x2, y2, x3, y3){
+    k = ((y2-y1) * (x3-x1) - (x2-x1) * (y3-y1)) / ((y2-y1)^2 + (x2-x1)^2)
+    x4 = x3 - k * (y2-y1)
+    y4 = y3 + k * (x2-x1)
+    return(c(x4, y4))
+}
+int <- perpn(A[1], A[2], C[1], C[2], iO[1], iO[2])
+arrows(iO[1], iO[2], int[1], int[2], length = 0, col = "grey")
+rlab <- mid(iO, int)
+text(rlab[1], rlab[2] + 0.025,  labels = expression( italic("r")), col = "grey")
+text(iO[1],iO[2] - 0.05, labels = expression( italic("c")), col = "grey")
+```
+
+
+## Triangle metrics
+
+
+Letting the area of $T$ be $|T|$ and the length of each edge $i$ for $i = 1, 2, 3$ be denoted $l_i$, where $l_\text{min}$ is the minimum edge length and $l_\text{max}$ is the maximum edge length. The table below gives a range of metrics that seek to measure a triangle's *shape*. The table is far from an exhaustive list of these metrics, they along others are detailed further in @delnotes, @lo1985new, @durand2019, @sarrate2003numerical, @pebay2001comparison, and @berzins1998solution. For brevity we give each metric a name.
+
+
+| Metric             |                                                |  
+|--------------------|------------------------------------------------|
+| $q_{Rl}$  | $\frac{R}{l_{min}}$                            |
+| $q_{rR}$        | $\frac{r}{R}$                                 |
+| $q_{ASl}$  | $\frac{4\sqrt{3}|T|}{\Sigma_{i = 1}^3 l_i^2}$                  |   
+| $q_{A}$  | $6 \sqrt{\frac{|T|}{\sqrt{3}}}$                                 |   
+| $q_{lL}$ | $\frac{l_\text{min}}{l_\text{max}}$                            | 
+| $q_{\theta_\text{min}}$   | $3 \frac{\theta_\text{min}}{\pi}$                               |
+| $q_{AL}$ | $\frac{4\sqrt{3} |T|}{l_\text{max}} * \Sigma_{i = 1}^3 l_i^2$    |
+| $q_{Al^2}$  | $\frac{1}{4 q_b} + q_w \frac{\sqrt{3}}{16}$   where $q_b = \frac{\Sigma_{i = 1}^3 l_i^2}{4 \sqrt{3} |T|}$ and $q_w = (\frac{1}{3|T|})(\Sigma_{i = 1}^3 l_i)^2$ |
+
+All the metrics above depend on one or both of the triangle area or edge lengths. To asses the quality of triangulation we require some measure or metric that, for each triangle, punishes angles near $0^\circ$ and $180^\circ$.
+
+In 2D the radius-edge ratio ($q_{Rl}$) is a apt measure of quality @delnotes. The radius-edge ratio for triangles ranges from $\infty$ to $\frac{1}{\sqrt{3}}$. The radius ratio ($q_{rR}$) ranges from 0 (for a degenerate element) to $\frac{1}{2}$ for the ideal equilateral triangle for the triangulation. For triangle $T$, the radius ratio is related to the smallest angle $\theta$ by the inequalities $2\text{sin}^2 \frac{\theta}{2} \leq \frac{r}{R} \leq 2 \text{tan}\frac{\theta}{2}$, this means that the radius ratio approaches 0 as $\theta$ approaches zero @delnotes.
+
+Note that $q_{ASl} \in (0,1]$, where for an equilateral triangle $|T| = \frac{\sqrt{3}}{4}l^2$ with $l_1 = l_2, l_3$ therefore $q_{ASl} = \frac{4\times(\sqrt{3}\sqrt{3})\times l^2}{4 \times 3 \times l_.^2} = 1$.
+
+```{r}
+triags <- list(equilateral = rbind(A, B,C = mems:::equilateral(A, B)),
+               right_angled = rbind(A, B, C = c(1,2)),
+               isoceles = rbind(A, B, C = c(1.5, 3)),
+               squat = rbind(A, B, C = c(1.5, 1.15)))
+par(mfrow = c(2, 2), mar = c(0,0,1,0))
+plot(deldir::deldir(triags[[1]]), wlines = "triang", asp = 1, pch = "", lwd = 3)
+title( "Equilateral")
+plot(deldir::deldir(triags[[2]]), wlines = "triang", asp = 1, pch = "", lwd = 3)
+title("Right angled")
+plot(deldir::deldir(triags[[3]]), wlines = "triang", asp = 1, pch = "", lwd = 3)
+title("Isoceles")
+plot(deldir::deldir(triags[[4]]), wlines = "triang", asp = 1, pch = "", lwd = 3)
+title("Squat")
+
+```
+
+
+```{r}
+ms <- lapply(triags, function(t) mems:::metrics(t[1,], t[2,], t[3,]) |> as.data.frame()) 
+ams <- do.call('rbind', ms)
+rownames(ams) <-  c("Equilateral", "Right angled", "Isoceled", "Squat")
+knitr::kable(ams[,c(1,11:18)], digits = 3)
+
+```
+
+## The Delaunay triangulation
+
+A Delaunay triangulation (@delaunay1934sphere), colloquially called a mesh, of a set of nodes is a triangulation of the nodes with the property that no node falls in the interior of the circumcircle of any triangle in the triangulation.The plot below illustrates this where each triangle ($T1$, ..., $T4$) is formed by the connection of three nodes (i.e., three of $n_i$, $i = 1,...,6$) via an edge and no node falls within a circumcircle.
+
+```{r, fig.align='center'}
+mesh <- example_mesh
+mem <- mems(mesh)
+nodes <- data.frame(x = mesh$loc[,1], y = mesh$loc[,2])
+npoints <- 100
+## circumcircle
+circum <- apply(cbind(mem$c_Ox, mem$c_Oy, mem$circumcircle_R), 1,
+                function(x) circle(c(x[1], x[2]), x[3]*2, npoints = npoints))
+circum <- do.call('rbind', circum)
+circum$id <- rep(1:nrow(mem), each = npoints)
+## plot
+ggplot(mem) + geom_sf(fill = NA, linewidth = 2, col = "grey", alpha = 0.7) +
+    theme_void() +
+    geom_path(data = circum, aes(x, y, group = id, col = as.character(id)))  +
+    theme(legend.position = "none") +
+    geom_text(data = cens(mesh), aes(x = x, y = y,
+    label = triangle, col = as.character(1:4)),size = 7) +
+    geom_point(data = nodes, aes(x = x, y = y), size = 10) +
+    geom_text(data = nodes, aes(x = x, y = y, label = paste("n", 1:nrow(nodes))), col = "white") +
+    scale_color_manual(values =  RColorBrewer::brewer.pal(4, "Dark2") )
+```
+
+```{r}
+mesh <- example_mesh
+nv <- mesh$n
+ang <- list()
+idx <- which(mesh$graph$vv == 1, arr.ind = TRUE)
+sp <- split(idx[,2], idx[,1])
+for(i in 1:nv){
+    ang[[i]] <- data.frame(x = rep(mesh$loc[i, 1], length(sp[[i]])),
+                           y = rep(mesh$loc[i, 2], length(sp[[i]])))
+    ang[[i]]$xend <- mesh$loc[sp[[i]],1]
+    ang[[i]]$yend <- mesh$loc[sp[[i]],2]
+}
+## combine
+dat <- do.call('rbind', ang)
+tv <- mesh$graph$tv
+vs <- list()
+for(i in 1:nrow(tv)) {
+    ## the three verts of one triangle
+    vs[[i]] <- data.frame(x = rep(mesh$loc[tv[i,], 1], each = 2),
+                     y = rep(mesh$loc[tv[i,], 2], each = 2))
+    vs[[i]]$xend <- vs[[i]]$x[c(3, 5, 1, 5, 1, 3)];vs[[i]]$yend <- vs[[i]]$y[c(3, 5, 1, 5, 1, 3)]
+}
+splt <- lapply(vs, function(x) split(x, c(1, 1, 2, 2,3, 3)))
+arc <- lapply(splt, function(h) do.call('rbind',
+                                        lapply(h, function(j) with(j, atan2(xend - x, yend - y)))))
+anges <- list()
+for (i in 1:length(vs)){
+    anges[[i]] <- vs[[i]][-c(2,4,6), ]
+    anges[[i]]$xend <- arc[[i]][,1]
+    anges[[i]]$yend <- arc[[i]][,2]
+}
+segs <- do.call('rbind', anges)
+segs[6,4] <- -1*segs[6,4]
+segs[1,4] <- -1*segs[1,4]
+segs$triangle <- rep(1:length(anges), times = sapply(anges, nrow))
+segs$r <- 0.3
+metrics <- mems(mesh)
+segs$as <- cbind(metrics$angleA, metrics$angleC, metrics$angleB) |> t() |> c()
+segs$order = 1:12
+
+plt <- ggplot(segs) +
+    geom_arc(aes(x0 = x, y0 = y, r = r, 
+                 start = xend,
+                 end = yend, col = as,
+                 group = order),
+             alpha = 0.1, linewidth = 3) + coord_equal() +
+    geom_segment(aes(x, y, xend = xend, yend = yend), data = dat, linewidth = 2) 
+    
+p <- ggplot_build(plt)
+segn <- p$data[[1]]
+require(tidyverse)
+segn <- segn %>%
+    group_by(group) %>%
+    summarise(mx = mean(x), my = mean(y))
+segn <- segn[order(as.numeric(segn$group)),]
+plt + geom_text(data = segn, aes(x = mx, y = my,
+                                 label = paste(round(segs$as,2), "°"),
+                                 col = segs$as,
+                                 group = segs$order),
+                size = 4, fontface = "bold") +
+    theme_void() + theme(legend.position = "none")
+```
+
+### Voronoi tessellation (Dual mesh)
+
+```{r}
+vor <- mems:::dual_mesh(mesh)
+sf <- mesh_2_sf(mesh)
+lin_sf <- half_segments(mesh)
+col_vor <- RColorBrewer::brewer.pal(6,"Dark2") 
+col_lin_sf <- col_vor[(st_intersection(vor, lin_sf) %>%
+    subset(., st_geometry_type(st_geometry(.)) == "LINESTRING"))$ID]
+## plot
+ggplot() +  geom_sf(data = vor,fill = col_vor,
+                    linetype = 2, alpha = 0.3) +
+    geom_sf(data = sf, fill = NA, linewidth = 1) +
+    geom_sf(data = lin_sf, col = col_lin_sf, linewidth = 2, alpha = 0.5) + 
+    theme_void() + geom_text(data = cens(mesh), aes(x = x, y = y,
+    label = triangle),size = 7) +
+    geom_point(data = nodes, aes(x = x, y = y), size = 10, col = col_vor) +
+    geom_text(data = nodes, aes(x = x, y = y, label = paste("n", 1:nrow(nodes))))
+```
+
+## Using Delaunay triangulations to approximate Gaussian random fields
+
+The breakthrough paper @lindgren2011explicit approximates a GRF by building a GMRF representation of the Matérn field on the triangulated lattice. Note they use the term representation deliberately. This involves, using results from @brenner2007fem, constructing a finite element representation of the solution to a SPDE $x(\boldsymbol{u})= \Sigma^n_{k=1} \phi_k(\boldsymbol{u})w_k$. Where the $\phi_k$ are some chosen basis functions, the  $w_k$ are Gaussian-distributed weights $w_k$ and $n$ are the number of vertices in the mesh (triangulation). 
+
+Common sense then says that the performance of the approach depends the elements of the representation (i.e., the basis function $\boldsymbol{\phi}$, and the characteristics (mean and variance) of the Gaussian distribution of $\boldsymbol{w}$
+
+The results of @lindgren2011explicit show that, under appropriate conditions, the precision matrix of the Gaussian weights $\boldsymbol{w}$ relies on two $n \times n$ matrices $\boldsymbol{C}$ termed the mass matrix and $\boldsymbol{G}$ called the stiffness matrix.\\
+
+Again using results from @brenner2007fem Equation 11 of @lindgren2011explicit gives a derived rates of convergence result for $\alpha = 2$:
+
+$$\text{sup}_{f \in H^1 ; ||f||_{H^1} \leq 1}  \{ E ( \langle f , x_n  - x \rangle^2_{H^1} ) \} \leq ch^2$$
+
+  
+were, $x_n$ is the GMRF representation of the SPDE solution $x$, and $h$ is the diameter of the largest
+circle that can be inscribed in a triangle in the triangulation (the incircle) and $c$ is some constant. As the incircle diameter $h$ is therefore proportional to the edge lengths between the vertices, when the minimal mesh angles $\theta_{min}$ are bounded away from zero .
+
+The performance of finite element computation depends strongly on the quality
+of the geometric mesh and the efficiency of the numerical solution of the linear systems resulting
+from the discretization of partial differential equation (PDE) models. It is common knowledge that
+mesh geometry affects not only the approximation error of the finite element solution but also the
+spectral properties of the corresponding stiffness matrix  @du2009mesh.
+
+## C and G matrices
+
+```{r}
+gg_qblocks(mesh, "C1")
+
+```
+
+```{r}
+gg_qblocks(mesh, "G1")
+
+```
+
+
+## References

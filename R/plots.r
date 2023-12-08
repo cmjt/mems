@@ -189,11 +189,50 @@ gg_seg_influence <- function(mesh, element = "C1"){
     plt +
         scale_fill_continuous(type = "viridis", na.value = NA)
 }
-#' Plot circle
+#' Returns x and y coords of circle
 circle <- function(center = c(0,0),diameter = 1, npoints = 100){
     r = diameter / 2
     tt <- seq(0,2*pi,length.out = npoints)
     xx <- center[1] + r * cos(tt)
     yy <- center[2] + r * sin(tt)
     return(data.frame(x = xx, y = yy))
+}
+#' Plot triangle with all the bells
+#' internal function only
+gg_tri <- function(A, B, C, node_labels = c("A", "B", "C"),
+                   edge_labels = c("a", "b", "c"), r = c(0.2, 0.2, 0.2),
+                   ang_labels = c(expression(theta[a]), expression(theta[b]), expression(theta[c]))){
+    tri <- data.frame(rbind(A, A, B, B, C, C), rbind(B, C, C, A, A, B))
+    names(tri) <- c("x", "y","xend", "yend"); rownames(tri) <- NULL
+    and <- with(tri, atan2(xend - x, yend - y))
+    aA <- and[1:2]; aB <- and[3:4]; aC <- and[5:6]
+    aA <-  ifelse(aA < 0, aA + 2 * pi, aA)
+    aB <-  ifelse(aB < 0, aB + 2 * pi, aB)
+    aC <-  ifelse(aC < 0, aC + 2 * pi, aC)
+    ## direction arc centered at node A
+    aA <- ifelse(abs(aA - aB) > pi & aA < aB, aA + 2 * pi, aA)
+    ## ## direction arc centered at node B
+    aB <- ifelse(abs(aB - aA) > pi & aB < aA, aB + 2 * pi, aB)
+    ## ## direction arc centered at node C
+    aC <- ifelse(abs(aC - aA) > pi & aC < aA, aC + 2 * pi, aC)
+    edge  <- data.frame(edge = edge_labels)
+    mids <- rbind(mems::mid(B, C), mems::mid(A, C), mems::mid(A, B))
+    edge$x <- mids[,1]; edge$y <- mids[,2]
+    plt <- ggplot(tri) +
+        geom_segment(aes(x, y, xend = xend, yend = yend), linewidth = 2) +
+        theme_void() +
+        ggforce::geom_arc(aes(x0 = A[1],y0 = A[2], start = aA[1], end = aA[2], r = r[1])) + 
+        ggforce::geom_arc(aes(x0 = B[1],y0 = B[2], start = aB[1], end = aB[2], r = r[2])) + 
+        ggforce::geom_arc(aes(x0 = C[1],y0 = C[2], start = aC[1], end = aC[2], r = r[3])) + 
+        coord_fixed() + geom_point(data = unique(tri[,1:2]), aes(x = x, y = y), size = 7) +
+        geom_text(data = unique(tri[,1:2]), aes(x = x, y = y, label = node_labels), col = "white") +
+        ggrepel::geom_text_repel(data = edge, aes(x = x , y = y ,
+                                   label = edge), fontface = "bold")
+    p <- ggplot_build(plt)
+    m <- sapply(c(2, 3, 4), function(h) p$data[[h]] %>% dplyr::summarize(x = mean(x), y = mean(y))) |> t()
+    m <- data.frame(x = unlist(m[,1]), y = unlist(m[,2]))
+    mids_theta <- rbind(mems::mid(A, m[1,]), mems::mid(B, m[2,]), mems::mid(C, m[3,]))
+    thetas <- data.frame(x = unlist(mids_theta[,1]), y = unlist(mids_theta[,2]))
+    plt + geom_text(data = thetas, aes(x = x , y = y), 
+                    label = ang_labels)
 }
