@@ -251,9 +251,9 @@ deldir_2_sf <- function(deldir) {
 #' where \eqn{l_{min}} is the minimum edge length;
 #' \item the radius ratio \code{radius_ratio} \eqn{\frac{r}{R}};
 #' \item \code{area}, area (\eqn{A});
-#' \item \code{metric_c1}: product of each triangle's nodes rowsums of the C1 matrix 
-#' \item \code{metric__g1}: product of each triangle's nodes rowsums of the G1 matrix 
-#' \item \code{metric_b1}: summation of each triangle's nodes rowsums of the B1 matrix 
+#' \item \code{metric_c1}:  sum of each triangle's nodes rowsums of the diagonal of the  C1 matrix 
+#' \item \code{metric__g1}: sum of each triangle's nodes rowsums of the diagnonal of the G1 matrix 
+#' \item \code{metric_b1}: summation of each triangle's nodes rowsums of the diagonal of the B1 matrix 
 #' \item \code{metric_1}: \eqn{\frac{4\sqrt{3}|A|}{\Sigma_{i = 1}^3 L_i^2}},
 #' where \eqn{L_i} is the length of edge \eqn{i}.
 #' \item \code{metric_2}: \eqn{6 \sqrt{\frac{A}{\sqrt{3}}}}.
@@ -273,7 +273,6 @@ deldir_2_sf <- function(deldir) {
 #' metrics <- mems(example_mesh)
 #' @export
 mems <- function(mesh, plot = FALSE, metric = "metric_1") {
-    angles <- mesh_ang(mesh = mesh)
     tv <- mesh$graph$tv
     fm <- fmesher::fm_fem(mesh)
     c1 <- g1 <- b1 <- numeric(nrow(tv))
@@ -287,38 +286,35 @@ mems <- function(mesh, plot = FALSE, metric = "metric_1") {
         A <- mesh$loc[tv[i, 1], 1:2]
         B <- mesh$loc[tv[i, 2], 1:2]
         C <- mesh$loc[tv[i, 3], 1:2]
-        a <-  dist(B, C)
-        b <- dist(A, C)
-        c <- dist(A, B)
-        c_R[i] <- circum_R(A, B, C)
-        i_R[i] <- incircle_r(A, B, C)
-        c_O[i, ] <- circum_O(A, B, C)
-        i_O[i, ] <- incircle_O(A, B, C)
-        area[i] <- abs(tri_area(a = a, b = b,
-                                angC = ang(a, b, c)))
-        quality_metrics[[i]] <- metrics(a, b, c) |> as.data.frame()
+        quality_metrics[[i]] <- metrics(A, B, C) |> as.data.frame()
     }
     mn <- lmin(mesh)
     sf <- mesh_2_sf(mesh)
-    df <- data.frame(ID = 1:nrow(sf), incircle_r = i_R,
-                     circumcircle_R = c_R,
-                     c_Ox = c_O[, 1],  c_Oy = c_O[, 2],
-                     i_Ox = i_O[, 1],  i_Oy = i_O[, 2],
-                     radius_edge = c_R / mn, radius_ratio = i_R / c_R,
-                     area = area, metric_c1 = c1,
+    df <- data.frame(ID = 1:nrow(sf),
+                     metric_c1 = c1,
                      metric_g1 = g1, metric_b1 = b1)
     df <- cbind(df, do.call('rbind', quality_metrics))
-    sf <- dplyr::left_join(sf, angles, by = "ID")
     sf <- dplyr::left_join(sf, df, by = "ID")
     if(plot) print(gg_mems(sf, metric = metric))
     return(sf)
 }
-#' A range of triangle quality metrics
+#' A range of triangle quality metrics and measures
 #'
-#' @inheritParams ang
-metrics <- function(a, b, c){
+#' @param A (x,y) coords of vertex A
+#' @param B (x,y) coords of vertex B
+#' @param C (x,y) coords of vertex C
+#' @export
+metrics <- function(A, B, C){
+    a <-  dist(B, C)
+    b <- dist(A, C)
+    c <- dist(A, B)
+    mn <- min(a, b, c)
     area <- abs(tri_area(a = a, b = b,
                          angC = ang(a, b, c)))
+    c_R <- circum_R(A, B, C)
+    i_R <- incircle_r(A, B, C)
+    c_O <- circum_O(A, B, C)
+    i_O <- incircle_O(A, B, C)
     m_1 <- (4 * sqrt(3) * abs(area)) / (sum(c(a, b, c)^2))
     m_2 <- (6*sqrt(area/sqrt(3))/sum(c(a, b, c)))^2
     m_3 <- min(a, b, c)/ max(a, b, c)
@@ -327,7 +323,18 @@ metrics <- function(a, b, c){
     q_b <- (sum(c(a, b, c)^2))/(4 * sqrt(3) * area)
     q_w <- (1/(3*area))*(sum(c(a, b, c))^2)
     m_6 <- 1/(4*q_b) + q_w*(sqrt(3)/16)
-    return(list(metric_1 = m_1, metric_2 = m_2,
+    rr <- i_R/ c_R
+    re <- c_R/mn
+    return(list(area = area,
+                incircle_r = i_R,
+                circumcircle_R = c_R,
+                c_Ox = c_O[1],  c_Oy = c_O[2],
+                i_Ox = i_O[1],  i_Oy = i_O[2],
+                angleA = ang(a, b, c),
+                angleB = ang(b, c, a),
+                angleC = ang(c, a, b),
+                rr = rr, re = re,
+                metric_1 = m_1, metric_2 = m_2,
                 metric_3 = m_3, metric_4 = m_4,
                 metric_5 = m_5, metric_6 = m_6))
 }
