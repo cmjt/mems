@@ -5,10 +5,13 @@
 \title{Plot segment influence
 only useful for small number of nodes}
 \usage{
-gg_seg_influence(mesh)
+gg_seg_influence(mesh, element = "C1")
 }
 \arguments{
 \item{mesh}{A \code{fmesher::fm_mesh_2d} object.}
+
+\item{element}{One of "C1", "G1", "B1", corresponding matricies from \code{fmesher::fm_fem()},
+default "C1".}
 }
 \description{
 Plot segment influence

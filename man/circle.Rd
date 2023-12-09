@@ -2,10 +2,10 @@
 % Please edit documentation in R/plots.r
 \name{circle}
 \alias{circle}
-\title{Plot circle}
+\title{Returns x and y coords of circle}
 \usage{
 circle(center = c(0, 0), diameter = 1, npoints = 100)
 }
 \description{
-Plot circle
+Returns x and y coords of circle
 }

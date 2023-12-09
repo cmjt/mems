@@ -5,7 +5,7 @@
 #' "metric_2", "metric_3", "metric_4", "metric_5", "metric_6"  (default "metric_1").
 #' @return A  \code{"ggplot"} object.
 #' @export
-gg_mems <- function(x, metric = "m1"){
+gg_mems <- function(x, metric = "metric_1"){
     opts <- c("metric_1", "metric_2", "metric_3", "metric_4", "metric_5", "metric_6" )
     if(!(metric %in% opts)) stop("Please provide a valide metric")
     if(metric == "metric_1"){
@@ -201,7 +201,8 @@ circle <- function(center = c(0,0),diameter = 1, npoints = 100){
 #' internal function only
 gg_tri <- function(A, B, C, node_labels = c("A", "B", "C"),
                    edge_labels = c("a", "b", "c"), r = c(0.2, 0.2, 0.2),
-                   ang_labels = c(expression(theta[a]), expression(theta[b]), expression(theta[c]))){
+                   ang_labels = c(expression(theta[a]), expression(theta[b]), expression(theta[c])),
+                   circum  = FALSE, incircle = FALSE){
     tri <- data.frame(rbind(A, A, B, B, C, C), rbind(B, C, C, A, A, B))
     names(tri) <- c("x", "y","xend", "yend"); rownames(tri) <- NULL
     and <- with(tri, atan2(xend - x, yend - y))
@@ -225,7 +226,7 @@ gg_tri <- function(A, B, C, node_labels = c("A", "B", "C"),
         ggforce::geom_arc(aes(x0 = B[1],y0 = B[2], start = aB[1], end = aB[2], r = r[2])) + 
         ggforce::geom_arc(aes(x0 = C[1],y0 = C[2], start = aC[1], end = aC[2], r = r[3])) + 
         coord_fixed() + geom_point(data = unique(tri[,1:2]), aes(x = x, y = y), size = 7) +
-        geom_text(data = unique(tri[,1:2]), aes(x = x, y = y, label = node_labels), col = "white") +
+        geom_text(data = tri[c(1, 3, 6),1:2], aes(x = x, y = y), label = node_labels, col = "white") +
         ggrepel::geom_text_repel(data = edge, aes(x = x , y = y ,
                                    label = edge), fontface = "bold")
     p <- ggplot_build(plt)
@@ -233,6 +234,29 @@ gg_tri <- function(A, B, C, node_labels = c("A", "B", "C"),
     m <- data.frame(x = unlist(m[,1]), y = unlist(m[,2]))
     mids_theta <- rbind(mems::mid(A, m[1,]), mems::mid(B, m[2,]), mems::mid(C, m[3,]))
     thetas <- data.frame(x = unlist(mids_theta[,1]), y = unlist(mids_theta[,2]))
-    plt + geom_text(data = thetas, aes(x = x , y = y), 
-                    label = ang_labels)
+    plt <- plt + geom_text(data = thetas, aes(x = x , y = y), 
+                           label = ang_labels)
+    if(circum | incircle){
+        mets <- mems:::metrics(A, B, C) |> as.data.frame()
+        if(circum){
+            cc <- mems:::circle(c(mets$c_Ox, mets$c_Oy), mets$circumcircle_R*2, npoints = 100)
+            plt <- plt + geom_path(data = cc, aes(x, y))  +
+                geom_point(data = mets, aes(x = c_Ox, y = c_Oy), pch = 18, size = 3) +
+                ggrepel::geom_text_repel(data = mets, aes(x = c_Ox, y = c_Oy, label = "C")) +
+                geom_segment(data = mets, aes(x = c_Ox, y = c_Oy, xend = c_Ox,
+                                              yend = c_Oy - circumcircle_R), linetype = 2) +
+                ggrepel::geom_text_repel(data = mets, aes(x = c_Ox, y = c_Oy - circumcircle_R/2, label = "R"))
+        }
+        if(incircle){
+            ic <- mems:::circle(c(mets$i_Ox, mets$i_Oy), mets$incircle_r*2, npoints = 100)
+            plt <- plt +  geom_path(data = ic, aes(x, y), col = "grey") +
+                geom_point(data = mets, aes(x = i_Ox, y = i_Oy), col = "grey") +
+                ggrepel::geom_text_repel(data = mets, aes(x = i_Ox, y = i_Oy, label = "c"), col = "grey") +
+                geom_segment(data = mets, aes(x = i_Ox, y = i_Oy, xend = i_Ox,
+                                              yend = i_Oy - incircle_r), col = "grey", linetype = 2) +
+                ggrepel::geom_text_repel(data = mets, aes(x = i_Ox, y = i_Oy - incircle_r/2, label = "r"),
+                                         col = "grey")
+        }
+    }
+   print(plt)     
 }

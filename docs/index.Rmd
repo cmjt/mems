@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = FALSE, eval = TRUE, warning = FALSE, messgae = FALS
 library(tidyverse)
 library(ggplot2)
 library(ggforce)
+library(ggrepel)
 library(Matrix)
 library(sf)
 devtools::load_all("~/Git/mems")
@@ -26,75 +27,14 @@ A triangle $T$ has three vertices A, B, C, with the three opposing edge vectors 
 A <- c(1, 1)
 B <- c(2, 1)
 C <- c(1.25, 1.5)
-tri <- data.frame(rbind(A, A, B, B, C, C), rbind(B, C, C, A, A, B))
-names(tri) <- c("x", "y","xend", "yend"); rownames(tri) <- NULL
-and <- with(tri, atan2(xend - x, yend - y))
-edge  <- data.frame(edge = c("a", "b", "c"))
-mid <- rbind(mid(B, C), mid(A, C), mid(A, B))
-edge$x <- mid[,1]; edge$y <- mid[,2]
-plt <- ggplot(tri) + geom_segment(aes(x, y, xend = xend, yend = yend), linewidth = 2) +
-  theme_void() +
-  geom_arc(aes(x0 = A[1],y0 = A[2], start = and[1], end = and[2], r = 0.2)) + 
-   geom_arc(aes(x0 = B[1],y0 = B[2], start = and[3], end = and[4], r = 0.2)) + 
-   geom_arc(aes(x0 = C[1],y0 = C[2], start =  2*pi + and[5], end = and[6], r = 0.2)) + 
-  coord_fixed() + geom_point(data = unique(tri[,1:2]), aes(x = x, y = y), size = 10) +
-    geom_text(data = unique(tri[,1:2]), aes(x = x, y = y, label = c("A", "B", "C")), col = "white") +
-  expand_limits(y = c(0.9, 1.6), x = c(0.9, 2.1)) +
-  geom_text(data = edge, aes(x = x + c(0, -0.05, 0), y = y + c(0.05, 0, -0.05), label = edge), fontface = "bold")
-p <- ggplot_build(plt)
-m <- sapply(c(2, 3, 4), function(h) p$data[[h]] %>% summarize(x = mean(x), y = mean(y))) |> t()
-m <- data.frame(x = unlist(m[,1]), y = unlist(m[,2]))
-
-plt + geom_text(data = m, aes(x = x + c(-0.05,  0.05, -0.025), y = y + c(-0.025,-0.025,0.05)), 
-                label = c(expression(theta[a]), expression(theta[b]), expression(theta[c])))
+gg_tri(A, B, C)
 
 ```
 
 The minimum edge length of $T$ is given by $l_\text{min}$ with opposite (minimum) angle $\theta_\text{min}$. The circumcircle of $T$ is a circle that passes through all the vertices of $T$ with radius $R$ and center $C$. The incircle of $T$ is the largest circle contained in the triangle tangent to the three edges. The incircle has radius $r$ and center $c$. 
 
 ```{r}
-tri <- unique(tri[,1:2])
-del <- deldir::deldir(tri)
-O <- mems:::circum_O(A, B, C)
-R <-  mems:::circum_R(A, B, C)
-iO <-  mems:::incircle_O(A, B, C)
-r <-  mems:::incircle_r(A, B, C)
-par(xpd = TRUE)
-plot(del, wlines = "triang", asp = 1, ylim = c(0.8, 1.6), xlim = c(0.9, 2.1),
-     pch = 20, lwd = 2, cex = 4)
-points(O[1], O[2], pch = 4, lwd = 3)
-## circumcircle
-plotrix::draw.circle(O[1], O[2], R)
-arrows(O[1], O[2], tri[1,1], tri[1, 2], length = 0, lty = 2)
-arrows(O[1], O[2], tri[2,1], tri[2, 2], length = 0, lty = 2)
-arrows(O[1], O[2], tri[3,1], tri[3, 2], length = 0, lty = 2)
-## text
-text(tri,labels = c("A","B", "C"), col = "white")
-text(O[1],O[2] + 0.05, labels = expression( italic("C")))
-Rlab <-  mems::mid(O, C)
-text(Rlab[1] + 0.025, Rlab[2],  labels = expression( italic("R")))
-lminlab <-  mems::mid(A, C)
-text(lminlab[1]- 0.035, lminlab[2],  labels = expression("\u2113"[min]))
-text(B[1] - 0.15, B[2] + 0.05, expression(theta[min]))
-plotrix::draw.arc(B[1], B[2], 0.25, deg1 = 180, deg2 = 146)
-## incircle
-points(iO[1], iO[2], pch = 20, col = "grey")
-plotrix::draw.circle(iO[1], iO[2], r, border = "grey")
-arrows(iO[1], iO[2], tri[1,1], tri[1, 2], length = 0, lty = 2, col = "grey")
-arrows(iO[1], iO[2], tri[2,1], tri[2, 2], length = 0, lty = 2, col = "grey")
-arrows(iO[1], iO[2], tri[3,1], tri[3, 2], length = 0, lty = 2, col = "grey")
-## stuff for point on AC line
-perpn <- function(x1, y1, x2, y2, x3, y3){
-    k = ((y2-y1) * (x3-x1) - (x2-x1) * (y3-y1)) / ((y2-y1)^2 + (x2-x1)^2)
-    x4 = x3 - k * (y2-y1)
-    y4 = y3 + k * (x2-x1)
-    return(c(x4, y4))
-}
-int <- perpn(A[1], A[2], C[1], C[2], iO[1], iO[2])
-arrows(iO[1], iO[2], int[1], int[2], length = 0, col = "grey")
-rlab <- mid(iO, int)
-text(rlab[1], rlab[2] + 0.025,  labels = expression( italic("r")), col = "grey")
-text(iO[1],iO[2] - 0.05, labels = expression( italic("c")), col = "grey")
+gg_tri(A, B, C, circum = TRUE, incircle = TRUE)
 ```
 
 

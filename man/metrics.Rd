@@ -2,17 +2,17 @@
 % Please edit documentation in R/mems.r
 \name{metrics}
 \alias{metrics}
-\title{A range of triangle quality metrics}
+\title{A range of triangle quality metrics and measures}
 \usage{
-metrics(a, b, c)
+metrics(A, B, C)
 }
 \arguments{
-\item{a}{A numeric triangle edgelength (opposite angle A).}
+\item{A}{(x,y) coords of vertex A}
 
-\item{b}{A numeric triangle edgelength (opposite angle B).}
+\item{B}{(x,y) coords of vertex B}
 
-\item{c}{A numeric triangle edgelength (opposite angle C).}
+\item{C}{(x,y) coords of vertex C}
 }
 \description{
-A range of triangle quality metrics
+A range of triangle quality metrics and measures
 }

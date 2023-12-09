@@ -4,12 +4,15 @@
 \alias{mems}
 \title{Calculate a number of different geometric attributes of a Delaunay triangulation}
 \usage{
-mems(mesh, plot = FALSE)
+mems(mesh, plot = FALSE, metric = "metric_1")
 }
 \arguments{
 \item{mesh}{A \code{fmesher::fm_mesh_2d} object.}
 
 \item{plot}{If \code{TRUE} then triangle quality metrics are plotted.}
+
+\item{metric}{character specifying which metric of \code{x} to plot one of "metric_1",
+"metric_2", "metric_3", "metric_4", "metric_5", "metric_6" (default "metric_1"), ignored if \code{plot = FALSE}.}
 }
 \value{
 An object of class \code{sf} with the following data for each triangle in the
@@ -28,9 +31,9 @@ interior angles;
 where \eqn{l_{min}} is the minimum edge length;
 \item the radius ratio \code{radius_ratio} \eqn{\frac{r}{R}};
 \item \code{area}, area (\eqn{A});
-\item \code{metric_c1}: product of each triangle's nodes rowsums of the C1 matrix
-\item \code{metric__g1}: product of each triangle's nodes rowsums of the G1 matrix
-\item \code{metric_b1}: summation of each triangle's nodes rowsums of the B1 matrix
+\item \code{metric_c1}:  sum of each triangle's nodes rowsums of the diagonal of the  C1 matrix
+\item \code{metric__g1}: sum of each triangle's nodes rowsums of the diagnonal of the G1 matrix
+\item \code{metric_b1}: summation of each triangle's nodes rowsums of the diagonal of the B1 matrix
 \item \code{metric_1}: \eqn{\frac{4\sqrt{3}|A|}{\Sigma_{i = 1}^3 L_i^2}},
 where \eqn{L_i} is the length of edge \eqn{i}.
 \item \code{metric_2}: \eqn{6 \sqrt{\frac{A}{\sqrt{3}}}}.

@@ -5,13 +5,16 @@
 \title{Plots the calculated metrics from a \code{mems} output
 (i.e., each triangle metric).}
 \usage{
-gg_mems(x)
+gg_mems(x, metric = "m1")
 }
 \arguments{
 \item{x}{output of \code{mems::mems}}
+
+\item{metric}{character specifying which metric of \code{x} to plot one of "metric_1",
+"metric_2", "metric_3", "metric_4", "metric_5", "metric_6"  (default "metric_1").}
 }
 \value{
-A  \code{"patchwork"}, \code{"gg"}, \code{"ggplot"} object.
+A  \code{"ggplot"} object.
 }
 \description{
 Plots the calculated metrics from a \code{mems} output
